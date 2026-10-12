@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.4.0] - 2026-10-12 — Stable desktop and mobile/Torn PDA release
+
+- Promoted the tested v1.4.0 mobile beta to the stable release, with iPhone Torn PDA testing reported successful.
+- Retained familiar desktop hover behavior while adding mobile tap conversion and long-press conversion for linked timestamps.
+- Added a closable touch tooltip, scroll/movement cancellation, and safeguards against synthetic mouse events after touch.
+- Preserved 24-hour output, device-local time zone/DST conversion, and no API key or network access.
+- Restored the regular script name and `main`-branch automatic update URLs for GitHub and Greasy Fork distribution.
+- Added desktop and mobile installation instructions and included Node-based regression tests.
+- Android Torn PDA remains unverified on a physical device; community testing is welcome.
+
 ## [1.4.0-beta.1] - 2026-10-12 — Mobile/PDA testing branch
 
 - Added tap-to-convert for ordinary timestamp text on touchscreens.
