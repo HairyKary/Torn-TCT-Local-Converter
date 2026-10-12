@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Torn TCT + Local Hover Converter
 // @namespace    https://github.com/HairyKary/Torn-TCT-Local-Converter
-// @version      1.4.0
+// @version      1.4.1
 // @author       HairyKary
 // @license      MIT
 // @description  Convert TCT timestamps to device-local time: hover on desktop, tap or long-press on mobile.
@@ -21,6 +21,9 @@
   const TOOLTIP_ID = 'tct-local-hover-tooltip';
   const STYLE_ID = 'tct-local-hover-style';
   const TIME = '([01]?\\d|2[0-3]):([0-5]\\d)(?::([0-5]\\d))?';
+  // A clock display is not always a clock *time*: travel timers are durations.
+  const FLIGHT_ARRIVAL = /\b(?:landing(?:\s+(?:at|time))?|arriv(?:al|ing)(?:\s+(?:at|time))?|arrives?\s+at|lands?\s+at)\s*[:–—-]?\s*$/i;
+  const DURATION_LABEL = /\b(?:remaining\s+(?:(?:flight|travel)\s+)?time|(?:flight|travel)\s+time\s+remaining|time\s+(?:left|remaining)|countdown|cooldown|duration|elapsed(?:\s+time)?|flight\s+duration|travel\s+duration|(?:starts?|ends?|finishes?)\s+in)\s*[:–—-]?\s*$/i;
   const HOLD_MS = 450;
   const MOVE_TOLERANCE = 12;
   const SYNTHETIC_MOUSE_DELAY_MS = 1500;
@@ -88,8 +91,9 @@
       if (date) return { date, inferred: false };
     }
 
-    // No date supplied: assume current UTC calendar date, and disclose it.
-    match = text.match(new RegExp('^' + TIME + '\\s*(?:TCT|UTC)?$', 'i'));
+    // Labels like "Landing at 23:45:50" are absolute TCT times, not countdowns.
+    match = text.match(new RegExp('\\b(?:landing(?:\\s+(?:at|time))?|arriv(?:al|ing)(?:\\s+(?:at|time))?|arrives?\\s+at|lands?\\s+at)\\s*[:–—-]?\\s*' + TIME + '\\b', 'i'));
+    if (!match) match = text.match(new RegExp('^' + TIME + '\\s*(?:TCT|UTC)?$', 'i'));
     if (!match && (isTimeElement || /\b(?:TCT|UTC)\b/i.test(text))) {
       match = text.match(new RegExp('\\b' + TIME + '\\s*(?:TCT|UTC)\\b', 'i')) ||
         text.match(new RegExp('\\b(?:TCT|UTC)\\s*[:–-]?\\s*' + TIME + '\\b', 'i'));
@@ -98,7 +102,11 @@
       const now = new Date();
       date = utcDate(now.getUTCFullYear(), now.getUTCMonth() + 1,
         now.getUTCDate(), +match[1], +match[2], +(match[3] || 0));
-      if (date) return { date, inferred: true };
+      if (date) {
+        const clock = `${String(+match[1]).padStart(2, '0')}:${match[2]}` +
+          (match[3] == null ? '' : `:${match[3]}`);
+        return { date, inferred: true, clock };
+      }
     }
     return null;
   }
@@ -146,6 +154,46 @@
     tooltip.append(close, tctLine, localLine, noteLine);
     document.body.appendChild(tooltip);
 
+    // Match the label immediately BEFORE a clock, not a neighboring time.
+    // Torn flight panels often contain both a countdown and a landing time.
+    function clockKind(text, clock) {
+      const source = String(text || '').replace(/\s+/g, ' ');
+      if (!clock) return null;
+      // Handle 3:14:38 and 03:14:38 consistently.
+      const components = clock.split(':');
+      const variants = [clock, `${Number(components[0])}:${components.slice(1).join(':')}`];
+      let index = -1;
+      for (const variant of variants) {
+        const found = source.indexOf(variant);
+        if (found !== -1 && (index === -1 || found < index)) index = found;
+      }
+      if (index < 0) return null;
+      let preceding = source.slice(Math.max(0, index - 110), index);
+      // A previous clock marks the beginning of a *different* field/label.
+      let lastClockEnd = 0;
+      for (const match of preceding.matchAll(new RegExp('\\b' + TIME + '\\b', 'g'))) {
+        lastClockEnd = match.index + match[0].length;
+      }
+      preceding = preceding.slice(lastClockEnd);
+      if (DURATION_LABEL.test(preceding)) return 'duration';
+      if (FLIGHT_ARRIVAL.test(preceding)) return 'arrival';
+      return null;
+    }
+
+    function contextKind(node, candidate, clock) {
+      const direct = clockKind(candidate, clock);
+      if (direct) return direct;
+      // Restrict the search to close-by containers; don't absorb unrelated rows.
+      for (let parent = node.parentElement, depth = 0; parent && depth < 3;
+        parent = parent.parentElement, depth++) {
+        const content = (parent.textContent || '').trim();
+        if (content.length > 320) break;
+        const kind = clockKind(content, clock);
+        if (kind) return kind;
+      }
+      return null;
+    }
+
     function hoveredTimestamp(element) {
       if (element.closest(`#${TOOLTIP_ID}, input, textarea, select, [contenteditable]`)) return null;
       for (let node = element, depth = 0;
@@ -158,10 +206,28 @@
           node.getAttribute('datetime'), node.getAttribute('data-original-title'),
           node.getAttribute('title'), node.getAttribute('aria-label'), directText
         ];
-        if ((node.textContent || '').length < 160) candidates.push(node.textContent);
+        const wholeText = node.textContent || '';
+        // If a wrapper has multiple clock values, hovering the wrapper should
+        // not accidentally select a different child (e.g., flight countdown).
+        if (wholeText.length < 160 &&
+            [...wholeText.matchAll(new RegExp('\\b' + TIME + '\\b', 'g'))].length <= 1) {
+          candidates.push(wholeText);
+        }
         for (const candidate of candidates) {
           const match = parseTimestamp(candidate, node.tagName === 'TIME');
-          if (match) return match;
+          if (!match) continue;
+          if (!match.inferred || !match.clock) return match;
+          const kind = contextKind(node, candidate, match.clock);
+          if (kind === 'duration') return null;
+          if (kind === 'arrival') {
+            const now = new Date();
+            const next = new Date(match.date);
+            // Landing is the NEXT occurrence of that TCT clock time (within 24h).
+            if (next.getTime() < now.getTime()) next.setUTCDate(next.getUTCDate() + 1);
+            return { date: next, inferred: true,
+              note: 'Landing clock: next occurrence in TCT (date inferred).' };
+          }
+          return match;
         }
       }
       return null;
@@ -190,7 +256,7 @@
     function show(match, x, y, touch = false) {
       tctLine.textContent = `TCT: ${formatTCT(match.date)}`;
       localLine.textContent = `Local: ${formatLocal(match.date)}`;
-      noteLine.textContent = match.inferred ? 'No date shown; assuming today in TCT.' : '';
+      noteLine.textContent = match.note || (match.inferred ? 'No date shown; assuming today in TCT.' : '');
       noteLine.style.display = match.inferred ? 'block' : 'none';
       tooltip.classList.toggle('tct-touch', touch);
       tooltip.style.display = 'block';

@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.4.1] - 2026-10-12 — Flight screen countdown detection patch
+
+- Ignore travel/flight countdown durations such as `Remaining Flight Time - 03:14:38` instead of interpreting them as TCT clock times.
+- Recognize `Landing at 23:45:50` as a TCT arrival clock and show its equivalent local time.
+- When the landing time has no explicit date, use its next occurrence in TCT (including next-day rollovers) and label the inferred date.
+- Avoid converting a nearby countdown when multiple clock values share a flight panel.
+- Added regression tests for separate countdown/landing elements, inline labels, and midnight crossing; retain desktop and Torn PDA touch support.
+
 ## [1.4.0] - 2026-10-12 — Stable desktop and mobile/Torn PDA release
 
 - Promoted the tested v1.4.0 mobile beta to the stable release, with iPhone Torn PDA testing reported successful.

@@ -1,6 +1,6 @@
 # Torn TCT + Local Hover Converter
 
-**v1.4.0 — Stable desktop and mobile/Torn PDA release**
+**v1.4.1 — Stable desktop and mobile/Torn PDA release**
 
 A lightweight, unofficial userscript for [Torn](https://www.torn.com/) that displays Torn City Time (TCT / UTC) alongside your device's local time only when you interact with a timestamp. No permanent clock, API key, external libraries, or network requests.
 
@@ -11,6 +11,7 @@ A lightweight, unofficial userscript for [Torn](https://www.torn.com/) that disp
 - The compact popup shows **TCT and device-local time in 24-hour format**, with automatic daylight saving time adjustments, and never changes the original page content.
 - Close a mobile popup using **×**, by tapping elsewhere, or by scrolling. Movement cancels an unfinished long press.
 - Supports time-only values, Torn-style dates, ISO timestamps, and common tooltip attributes, including `datetime`, `title`, and `aria-label`.
+- **Torn flight screens:** ignores countdown durations (such as `Remaining Flight Time - 03:14:38`) but converts actual landing clock times (such as `Landing at 23:45:50`) to your device time.
 
 ## Install on desktop
 
@@ -53,6 +54,7 @@ A full timestamp near midnight may convert to a different local calendar date. T
 - Examples: `20:00:00 - 12/10/26`, `12/10/26 20:00`, `2026-10-12 20:00`, ISO timestamps with explicit offsets, `20:00`, `20:00 TCT`, and `TCT 20:00`.
 - Torn-style dates are interpreted as **DD/MM/YY** or **DD/MM/YYYY**, not MM/DD.
 - Bare clock times without a date are assumed to be **today in UTC/TCT** and are marked with a note. If the time actually refers to tomorrow, conversion may be wrong because the date was missing.
+- **Flight landing clocks without a date** are treated as the **next occurrence of that time in UTC/TCT** (within the next 24 hours), with a note that the date is inferred. Countdown durations are *not* UTC clock times, even when written as `HH:MM:SS`.
 - The script assumes unmarked timestamps are TCT/UTC; timestamps explicitly in another time zone might not convert as expected.
 - It cannot recognize every text format or timestamp rendered inside inaccessible page elements.
 
