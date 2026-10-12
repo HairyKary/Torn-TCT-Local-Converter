@@ -1,14 +1,14 @@
 // ==UserScript==
-// @name         Torn TCT + Local Hover Converter (Mobile Beta)
+// @name         Torn TCT + Local Hover Converter
 // @namespace    https://github.com/HairyKary/Torn-TCT-Local-Converter
-// @version      1.4.0-beta.1
+// @version      1.4.0
 // @author       HairyKary
 // @license      MIT
 // @description  Convert TCT timestamps to device-local time: hover on desktop, tap or long-press on mobile.
 // @homepageURL  https://github.com/HairyKary/Torn-TCT-Local-Converter
 // @supportURL   https://github.com/HairyKary/Torn-TCT-Local-Converter/issues
-// @updateURL    https://raw.githubusercontent.com/HairyKary/Torn-TCT-Local-Converter/feature/pda-mobile-touch/torn-tct-local-converter.user.js
-// @downloadURL  https://raw.githubusercontent.com/HairyKary/Torn-TCT-Local-Converter/feature/pda-mobile-touch/torn-tct-local-converter.user.js
+// @updateURL    https://raw.githubusercontent.com/HairyKary/Torn-TCT-Local-Converter/main/torn-tct-local-converter.user.js
+// @downloadURL  https://raw.githubusercontent.com/HairyKary/Torn-TCT-Local-Converter/main/torn-tct-local-converter.user.js
 // @match        https://www.torn.com/*
 // @match        https://torn.com/*
 // @run-at       document-idle
