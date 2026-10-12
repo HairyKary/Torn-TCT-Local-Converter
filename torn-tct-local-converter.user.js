@@ -1,14 +1,14 @@
 // ==UserScript==
-// @name         Torn TCT + Local Hover Converter
+// @name         Torn TCT + Local Hover Converter (Mobile Beta)
 // @namespace    https://github.com/HairyKary/Torn-TCT-Local-Converter
-// @version      1.3.0
+// @version      1.4.0-beta.1
 // @author       HairyKary
 // @license      MIT
-// @description  Convert Torn timestamps to your device's local time on hover (24-hour format).
+// @description  Convert TCT timestamps to device-local time: hover on desktop, tap or long-press on mobile.
 // @homepageURL  https://github.com/HairyKary/Torn-TCT-Local-Converter
 // @supportURL   https://github.com/HairyKary/Torn-TCT-Local-Converter/issues
-// @updateURL    https://raw.githubusercontent.com/HairyKary/Torn-TCT-Local-Converter/main/torn-tct-local-converter.user.js
-// @downloadURL  https://raw.githubusercontent.com/HairyKary/Torn-TCT-Local-Converter/main/torn-tct-local-converter.user.js
+// @updateURL    https://raw.githubusercontent.com/HairyKary/Torn-TCT-Local-Converter/feature/pda-mobile-touch/torn-tct-local-converter.user.js
+// @downloadURL  https://raw.githubusercontent.com/HairyKary/Torn-TCT-Local-Converter/feature/pda-mobile-touch/torn-tct-local-converter.user.js
 // @match        https://www.torn.com/*
 // @match        https://torn.com/*
 // @run-at       document-idle
@@ -21,12 +21,12 @@
   const TOOLTIP_ID = 'tct-local-hover-tooltip';
   const STYLE_ID = 'tct-local-hover-style';
   const TIME = '([01]?\\d|2[0-3]):([0-5]\\d)(?::([0-5]\\d))?';
+  const HOLD_MS = 450;
+  const MOVE_TOLERANCE = 12;
+  const SYNTHETIC_MOUSE_DELAY_MS = 1500;
   const localZone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
 
-  // Prevent duplicate overlays if a userscript manager injects more than once.
-  if (document.getElementById(TOOLTIP_ID)) return;
-
-  // A separate zone formatter gives reliable EDT/EST names in en-US browsers.
+  // All displayed dates use the device time zone; TCT is always UTC.
   function makeFormatter(timeZone) {
     const stamp = new Intl.DateTimeFormat('en-GB', {
       timeZone, day: '2-digit', month: 'short', year: 'numeric',
@@ -34,15 +34,15 @@
     });
     const zoneName = new Intl.DateTimeFormat('en-US', { timeZone, timeZoneName: 'short' });
     return date => {
-      const abbreviation = zoneName.formatToParts(date)
+      const label = zoneName.formatToParts(date)
         .find(part => part.type === 'timeZoneName')?.value || timeZone;
-      return `${stamp.format(date)} ${abbreviation}`;
+      return `${stamp.format(date)} ${label}`;
     };
   }
   const formatTCT = makeFormatter('UTC');
   const formatLocal = makeFormatter(localZone);
 
-  // Validate explicitly: Date.UTC otherwise silently normalizes invalid days.
+  // Date.UTC silently normalizes impossible dates; reject them instead.
   function utcDate(year, month, day, hour, minute, second = 0) {
     const date = new Date(Date.UTC(year, month - 1, day, hour, minute, second));
     return date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 &&
@@ -60,14 +60,14 @@
     let match;
     let date;
 
-    // ISO 8601 with explicit UTC zone or offset. Preserve its actual instant.
+    // ISO 8601 with Z / numeric offset specifies an exact instant.
     match = text.match(/\b(20\d{2})-(\d{2})-(\d{2})T([01]\d|2[0-3]):([0-5]\d)(?::([0-5]\d))?(?:\.\d+)?(?:Z|[+-](?:[01]\d|2[0-3]):[0-5]\d)(?!\w)/i);
     if (match && utcDate(+match[1], +match[2], +match[3], +match[4], +match[5], +(match[6] || 0))) {
       date = new Date(match[0]);
       if (Number.isFinite(date.getTime())) return { date, inferred: false };
     }
 
-    // YYYY-MM-DD HH:MM or YYYY-MM-DDTHH:MM, interpreted as TCT (UTC).
+    // YYYY-MM-DD HH:MM or YYYY-MM-DDTHH:MM, interpreted as UTC.
     match = text.match(/\b(20\d{2})[-/.](\d{1,2})[-/.](\d{1,2})[ T]([01]?\d|2[0-3]):([0-5]\d)(?::([0-5]\d))?\b/);
     if (match) {
       date = utcDate(+match[1], +match[2], +match[3], +match[4], +match[5], +(match[6] || 0));
@@ -88,7 +88,7 @@
       if (date) return { date, inferred: false };
     }
 
-    // Bare clock times are assumed to mean TODAY in TCT; warn in tooltip.
+    // No date supplied: assume current UTC calendar date, and disclose it.
     match = text.match(new RegExp('^' + TIME + '\\s*(?:TCT|UTC)?$', 'i'));
     if (!match && (isTimeElement || /\b(?:TCT|UTC)\b/i.test(text))) {
       match = text.match(new RegExp('\\b' + TIME + '\\s*(?:TCT|UTC)\\b', 'i')) ||
@@ -103,99 +103,219 @@
     return null;
   }
 
-  const style = document.createElement('style');
-  style.id = STYLE_ID;
-  style.textContent = `
-    #${TOOLTIP_ID} {
-      position: fixed;
-      z-index: 2147483640;
-      display: none;
-      pointer-events: none;
-      box-sizing: border-box;
-      width: max-content;
-      max-width: min(320px, calc(100vw - 20px));
-      padding: 8px 10px;
-      border: 1px solid #596575;
-      border-radius: 7px;
-      background: #171b22;
-      color: #eef1f5;
-      box-shadow: 0 4px 18px #0008;
-      font: 12px/1.5 Arial, sans-serif;
-      overflow-wrap: anywhere;
-    }
-    #${TOOLTIP_ID} .tct-local-line { color: #b4f2c1; font-weight: 700; }
-    #${TOOLTIP_ID} .tct-local-note { color: #b8bdc6; font-size: 11px; }
-  `;
-  (document.head || document.documentElement).appendChild(style);
+  function init() {
+    if (document.getElementById(TOOLTIP_ID) || !document.body) return;
 
-  const tooltip = document.createElement('div');
-  tooltip.id = TOOLTIP_ID;
-  tooltip.setAttribute('role', 'tooltip');
-  const tctLine = document.createElement('div');
-  const localLine = document.createElement('div');
-  localLine.className = 'tct-local-line';
-  const noteLine = document.createElement('div');
-  noteLine.className = 'tct-local-note';
-  tooltip.append(tctLine, localLine, noteLine);
-  document.body.appendChild(tooltip);
-
-  function hoveredTimestamp(element) {
-    if (element.closest(`#${TOOLTIP_ID}, input, textarea, select, [contenteditable]`)) return null;
-
-    for (let node = element, depth = 0;
-      node && node !== document.body && depth < 4;
-      node = node.parentElement, depth++) {
-      const directText = Array.from(node.childNodes)
-        .filter(child => child.nodeType === Node.TEXT_NODE)
-        .map(child => child.textContent).join(' ').trim();
-      const candidates = [
-        node.getAttribute('datetime'), node.getAttribute('data-original-title'),
-        node.getAttribute('title'), node.getAttribute('aria-label'), directText
-      ];
-      if ((node.textContent || '').length < 160) candidates.push(node.textContent);
-
-      for (const candidate of candidates) {
-        const parsed = parseTimestamp(candidate, node.tagName === 'TIME');
-        if (parsed) return parsed;
+    const style = document.createElement('style');
+    style.id = STYLE_ID;
+    style.textContent = `
+      #${TOOLTIP_ID} {
+        position: fixed; z-index: 2147483640; display: none;
+        pointer-events: none; box-sizing: border-box;
+        width: max-content; max-width: min(320px, calc(100vw - 20px));
+        padding: 8px 10px; border: 1px solid #596575; border-radius: 7px;
+        background: #171b22; color: #eef1f5; box-shadow: 0 4px 18px #0008;
+        font: 12px/1.5 Arial, sans-serif; overflow-wrap: anywhere;
       }
+      #${TOOLTIP_ID}.tct-touch { pointer-events: auto; }
+      #${TOOLTIP_ID} .tct-local-line { color: #b4f2c1; font-weight: 700; }
+      #${TOOLTIP_ID} .tct-local-note { color: #b8bdc6; font-size: 11px; }
+      #${TOOLTIP_ID} .tct-close {
+        display: none; float: right; margin: -5px -5px 0 7px;
+        padding: 2px 6px; border: 0; border-radius: 4px;
+        background: transparent; color: #eef1f5; font: 16px/1.2 Arial, sans-serif;
+        cursor: pointer; touch-action: manipulation;
+      }
+      #${TOOLTIP_ID}.tct-touch .tct-close { display: block; }
+    `;
+    (document.head || document.documentElement).appendChild(style);
+
+    const tooltip = document.createElement('div');
+    tooltip.id = TOOLTIP_ID;
+    tooltip.setAttribute('role', 'tooltip');
+    const close = document.createElement('button');
+    close.type = 'button';
+    close.className = 'tct-close';
+    close.textContent = '×';
+    close.setAttribute('aria-label', 'Close time conversion');
+    const tctLine = document.createElement('div');
+    const localLine = document.createElement('div');
+    localLine.className = 'tct-local-line';
+    const noteLine = document.createElement('div');
+    noteLine.className = 'tct-local-note';
+    tooltip.append(close, tctLine, localLine, noteLine);
+    document.body.appendChild(tooltip);
+
+    function hoveredTimestamp(element) {
+      if (element.closest(`#${TOOLTIP_ID}, input, textarea, select, [contenteditable]`)) return null;
+      for (let node = element, depth = 0;
+        node && node !== document.body && depth < 4;
+        node = node.parentElement, depth++) {
+        const directText = Array.from(node.childNodes)
+          .filter(child => child.nodeType === Node.TEXT_NODE)
+          .map(child => child.textContent).join(' ').trim();
+        const candidates = [
+          node.getAttribute('datetime'), node.getAttribute('data-original-title'),
+          node.getAttribute('title'), node.getAttribute('aria-label'), directText
+        ];
+        if ((node.textContent || '').length < 160) candidates.push(node.textContent);
+        for (const candidate of candidates) {
+          const match = parseTimestamp(candidate, node.tagName === 'TIME');
+          if (match) return match;
+        }
+      }
+      return null;
     }
-    return null;
+
+    function hide() {
+      tooltip.style.display = 'none';
+      tooltip.classList.remove('tct-touch');
+    }
+
+    function position(x, y, touch = false) {
+      const pad = 10;
+      const width = tooltip.offsetWidth;
+      const height = tooltip.offsetHeight;
+      const viewportWidth = window.innerWidth;
+      const viewportHeight = window.innerHeight;
+      const left = Math.max(pad, Math.min(x + (touch ? -width / 2 : 15), viewportWidth - width - pad));
+      const below = y + (touch ? 24 : 18);
+      const above = y - height - (touch ? 20 : 12);
+      const top = touch ? (above >= pad ? above : below)
+        : (below + height <= viewportHeight - pad ? below : above);
+      tooltip.style.left = `${left}px`;
+      tooltip.style.top = `${Math.max(pad, Math.min(top, viewportHeight - height - pad))}px`;
+    }
+
+    function show(match, x, y, touch = false) {
+      tctLine.textContent = `TCT: ${formatTCT(match.date)}`;
+      localLine.textContent = `Local: ${formatLocal(match.date)}`;
+      noteLine.textContent = match.inferred ? 'No date shown; assuming today in TCT.' : '';
+      noteLine.style.display = match.inferred ? 'block' : 'none';
+      tooltip.classList.toggle('tct-touch', touch);
+      tooltip.style.display = 'block';
+      position(x, y, touch);
+    }
+
+    close.addEventListener('click', hide);
+
+    // Desktop behavior stays unchanged. Ignore synthesized mouse events after touch.
+    let lastTouchAt = 0;
+    document.addEventListener('mouseover', event => {
+      if (Date.now() - lastTouchAt < SYNTHETIC_MOUSE_DELAY_MS) return;
+      if (!(event.target instanceof Element)) return hide();
+      const match = hoveredTimestamp(event.target);
+      if (match) show(match, event.clientX, event.clientY);
+      else hide();
+    }, true);
+    document.addEventListener('mousemove', event => {
+      if (Date.now() - lastTouchAt >= SYNTHETIC_MOUSE_DELAY_MS && tooltip.style.display === 'block') {
+        position(event.clientX, event.clientY);
+      }
+    }, { passive: true });
+    document.addEventListener('mouseout', event => {
+      if (Date.now() - lastTouchAt >= SYNTHETIC_MOUSE_DELAY_MS && !event.relatedTarget) hide();
+    }, true);
+
+    let gesture = null;
+    let swallowClickTarget = null;
+    let swallowClickUntil = 0;
+
+    function cancelGesture() {
+      if (gesture?.timer != null) window.clearTimeout(gesture.timer);
+      gesture = null;
+    }
+
+    function interactiveAncestor(element) {
+      return element.closest('a[href], button, [role="button"], [role="link"], summary, label, [onclick]');
+    }
+
+    document.addEventListener('touchstart', event => {
+      lastTouchAt = Date.now();
+      cancelGesture();
+      if (event.touches.length !== 1 || !(event.target instanceof Element)) return;
+      if (tooltip.contains(event.target)) return;
+      hide();
+
+      const match = hoveredTimestamp(event.target);
+      if (!match) return;
+      const touch = event.touches[0];
+      const interactive = interactiveAncestor(event.target);
+      const current = {
+        target: event.target, actionTarget: interactive || event.target, match,
+        x: touch.clientX, y: touch.clientY, active: false,
+        interactive: Boolean(interactive), timer: null
+      };
+      gesture = current;
+      current.timer = window.setTimeout(() => {
+        if (gesture !== current) return;
+        current.active = true;
+        show(current.match, current.x, current.y, true);
+      }, HOLD_MS);
+    }, { passive: true });
+
+    document.addEventListener('touchmove', event => {
+      lastTouchAt = Date.now();
+      if (!gesture) return;
+      const touch = event.touches[0];
+      if (!touch || event.touches.length !== 1 ||
+          Math.hypot(touch.clientX - gesture.x, touch.clientY - gesture.y) > MOVE_TOLERANCE) {
+        if (gesture.active) hide();
+        cancelGesture();
+      }
+    }, { passive: true });
+
+    document.addEventListener('touchend', event => {
+      lastTouchAt = Date.now();
+      if (!gesture) return;
+      const current = gesture;
+      cancelGesture();
+      if (event.changedTouches.length !== 1 || event.touches.length) return;
+      if (current.active && current.interactive) {
+        // Suppress only the synthetic click generated by this long press.
+        swallowClickTarget = current.actionTarget;
+        swallowClickUntil = Date.now() + 1000;
+      } else if (!current.active && !current.interactive) {
+        show(current.match, current.x, current.y, true);
+      }
+    }, { passive: true });
+
+    document.addEventListener('touchcancel', () => {
+      lastTouchAt = Date.now();
+      cancelGesture();
+      hide();
+    }, { passive: true });
+
+    document.addEventListener('click', event => {
+      if (!swallowClickTarget) return;
+      if (Date.now() > swallowClickUntil) {
+        swallowClickTarget = null;
+        return;
+      }
+      if (swallowClickTarget.contains(event.target)) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        swallowClickTarget = null;
+      }
+    }, true);
+
+    document.addEventListener('contextmenu', event => {
+      if (gesture?.active && gesture.actionTarget.contains(event.target)) event.preventDefault();
+    }, true);
+
+    document.addEventListener('scroll', () => {
+      cancelGesture();
+      hide();
+    }, true);
+    document.addEventListener('mousedown', event => {
+      if (Date.now() - lastTouchAt >= SYNTHETIC_MOUSE_DELAY_MS) hide();
+    }, true);
+    window.addEventListener('blur', () => {
+      cancelGesture();
+      hide();
+    });
   }
 
-  function hide() { tooltip.style.display = 'none'; }
-
-  function position(event) {
-    const pad = 10;
-    const width = tooltip.offsetWidth;
-    const height = tooltip.offsetHeight;
-    const left = Math.max(pad, Math.min(event.clientX + 15, window.innerWidth - width - pad));
-    const below = event.clientY + 18;
-    const top = below + height <= window.innerHeight - pad
-      ? below : Math.max(pad, event.clientY - height - 12);
-    tooltip.style.left = `${left}px`;
-    tooltip.style.top = `${Math.max(pad, Math.min(top, window.innerHeight - height - pad))}px`;
-  }
-
-  document.addEventListener('mouseover', event => {
-    if (!(event.target instanceof Element)) return hide();
-    const matched = hoveredTimestamp(event.target);
-    if (!matched) return hide();
-
-    tctLine.textContent = `TCT: ${formatTCT(matched.date)}`;
-    localLine.textContent = `Local: ${formatLocal(matched.date)}`;
-    noteLine.textContent = matched.inferred ? 'No date shown; assuming today in TCT.' : '';
-    noteLine.style.display = matched.inferred ? 'block' : 'none';
-    tooltip.style.display = 'block';
-    position(event);
-  }, true);
-
-  document.addEventListener('mousemove', event => {
-    if (tooltip.style.display === 'block') position(event);
-  }, { passive: true });
-  document.addEventListener('mouseout', event => {
-    if (!event.relatedTarget) hide();
-  }, true);
-  document.addEventListener('scroll', hide, true);
-  document.addEventListener('mousedown', hide, true);
-  window.addEventListener('blur', hide);
+  if (document.body) init();
+  else document.addEventListener('DOMContentLoaded', init, { once: true });
 })();
