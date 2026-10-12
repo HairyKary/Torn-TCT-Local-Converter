@@ -73,4 +73,37 @@ touchStart(label);fire('touchmove',{target:label,touches:[touch(61,230)]});advan
 touchStart(label);fire('touchcancel',{target:label});advance(550);assert.equal(tooltip.style.display,'none','cancelled touch');
 touchStart(label);touchEnd(label);assert.equal(tooltip.style.display,'block');close.eventListeners.click[0]();assert.equal(tooltip.style.display,'none','close button');
 assert.equal(document.getElementById('tct-local-hover-tooltip'),tooltip,'singleton');
-console.log('PASS: 19 assertions across desktop hover, DST, midnight, mobile tap/hold, navigation, scroll, dismissal.');
+
+advance(2000); // Let synthesized mouse suppression expire after touch tests.
+const flightPanel = el('div', 'Johannesburg to Torn. ');
+const countdownBox = new FakeElement('div');
+countdownBox.textContent = 'Remaining Flight Time - ';
+flightPanel.append(countdownBox);
+const countdownClock = new FakeElement('span');
+countdownClock.textContent = '03:14:38';
+countdownBox.append(countdownClock);
+const arrivalBox = new FakeElement('div');
+arrivalBox.textContent = 'Landing at ';
+flightPanel.append(arrivalBox);
+const arrivalClock = new FakeElement('span');
+arrivalClock.textContent = '23:45:50';
+arrivalBox.append(arrivalClock);
+fire('mouseover', { target: countdownClock });
+assert.equal(tooltip.style.display, 'none', 'flight countdown must not display converted time');
+fire('mouseover', { target: arrivalClock });
+assert.equal(tooltip.style.display, 'block', 'landing clock must convert');
+assert.match(tct.textContent, /23:45/);
+assert.match(local.textContent, /19:45 EDT/);
+assert.match(note.textContent, /next occurrence/);
+const inlineCountdown = el('span', 'Remaining Flight Time - 03:14:38');
+fire('mouseover', { target: inlineCountdown });
+assert.equal(tooltip.style.display, 'none', 'inline countdown must not convert');
+const inlineLanding = el('span', 'Landing at 23:45:50');
+fire('mouseover', { target: inlineLanding });
+assert.equal(tooltip.style.display, 'block', 'inline landing must convert');
+const midnightLanding = el('span', 'Landing at 00:05:00');
+fire('mouseover', { target: midnightLanding });
+assert.match(tct.textContent, /13 Oct 2026, 00:05/, 'landing rolls to next TCT date');
+assert.match(local.textContent, /12 Oct 2026, 20:05 EDT/, 'local date converts correctly');
+
+console.log('PASS: desktop, mobile, and flight countdown/landing regression checks.');
