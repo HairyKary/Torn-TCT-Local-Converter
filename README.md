@@ -1,56 +1,57 @@
 # Torn TCT + Local Hover Converter
 
-A small [Tampermonkey](https://www.tampermonkey.net/) userscript for [Torn](https://www.torn.com/) that converts supported Torn City Time (TCT/UTC) timestamps to your browser's local time when you hover over them.
+**v1.3.0 — First stable desktop release**
 
-> **Beta (v1.2.0):** Timestamp formats vary across Torn pages. This script has not yet been tested on every page; report missed or incorrectly interpreted timestamps in [Issues](https://github.com/HairyKary/Torn-TCT-Local-Converter/issues).
+A lightweight, unofficial [Tampermonkey](https://www.tampermonkey.net/) userscript for [Torn](https://www.torn.com/) that shows the **local equivalent of TCT (UTC) timestamps when you hover over them**. No permanent clocks, extra controls, API keys, or network requests.
 
 ## Features
 
-- **Hover-only** display: no persistent clock, toolbar, or overlay covering Torn chat.
-- Shows **TCT and local time in 24-hour format** in a compact tooltip.
-- Detects your time zone automatically using your browser, including daylight saving time.
-- Recognizes several date/time patterns, including `20:00:00 - 12/10/26`, `12/10/26 20:00:00`, and `2026-10-12 20:00`.
-- Recognizes stand-alone `HH:MM` / `HH:MM:SS` values and times explicitly marked `TCT`/`UTC`.
-- **No Torn API key** and no external network requests.
-- Does not change the displayed timestamp or page content.
+- Shows **TCT and local time in 24-hour format** only when hovering over a recognized timestamp.
+- Automatically uses the **device/browser's configured time zone**, including daylight saving time (EDT/EST where applicable).
+- Understands Torn-style date/time formats such as `20:00:00 - 12/10/26` and `12/10/26 20:00`, ISO timestamps, and time-only `20:00` / `20:00 TCT`.
+- Detects timestamps in visible text and common tooltip/date attributes, including `<time datetime="...">`.
+- Does not change Torn's existing page content or prevent normal mouse interactions.
+- No Torn API key, special userscript privileges, tracking, or external network calls.
 
-## Installation
+## Install on desktop
 
-1. Install **Tampermonkey** in a supported desktop browser.
-2. Open the script's [raw install link](https://raw.githubusercontent.com/HairyKary/Torn-TCT-Local-Converter/main/torn-tct-local-converter.user.js) (once this repository is published).
-3. Choose **Install** when Tampermonkey prompts you.
-4. Refresh Torn and hover over a timestamp.
+1. Install [Tampermonkey](https://www.tampermonkey.net/) (or another compatible userscript manager).
+2. Open [**Install the current script**](https://raw.githubusercontent.com/HairyKary/Torn-TCT-Local-Converter/main/torn-tct-local-converter.user.js).
+3. Approve the installation and refresh Torn.
+4. Hover over a time or date/time on Torn.
 
-Alternatively, open Tampermonkey's dashboard, create a new script, and paste the contents of [`torn-tct-local-converter.user.js`](torn-tct-local-converter.user.js).
-
-If you previously installed an earlier copy manually, **disable or remove the old version** to prevent two copies from running simultaneously.
+If you have an older manually installed copy, **disable or delete it first** to avoid duplicate tooltips. The published script has `@updateURL` and `@downloadURL` set to this repository's `main` branch. Versioned updates are picked up during your userscript manager's update checks.
 
 ## Example
 
-Hovering over `20:00:00 - 12/10/26` produces this in US Eastern time on October 12, 2026:
+Hovering over `20:00:00 - 12/10/26` in US Eastern time on October 12, 2026:
 
 ```text
 TCT:   12 Oct 2026, 20:00 UTC
 Local: 12 Oct 2026, 16:00 EDT
 ```
 
-In winter, the local time adjusts automatically to EST. In other time zones the script uses that device's local setting.
+A full timestamp can correctly produce a **different local calendar date**. For example, `01:00 TCT` on October 12 is `21:00 EDT` on October 11.
 
-## Known limitations
+## Time zones and dates
 
-- When a time appears **without a date**, the script assumes *today's date in TCT (UTC)*. A time intended for tomorrow may therefore convert incorrectly if no date is displayed.
-- It assumes recognized timestamps are **TCT/UTC**; timestamps actually presented in another time zone could be misinterpreted.
-- Torn uses dynamic interface components, and some timestamps may not be exposed as readable text or standard HTML attributes. Please include the Torn page and a timestamp example when reporting an issue.
-- The script targets the desktop browser version of Torn. Mobile apps and browser extensions have not been validated.
+- TCT is UTC. The converter relies on the browser's **configured time zone**, not your IP address or Torn account settings.
+- If you travel or change the device's time zone, reload Torn to refresh the time-zone setting.
+- When hovering over a **time without a date**, the script assumes today's date **in UTC/TCT** and shows a warning. An event intended for tomorrow cannot be inferred from `20:00` alone.
+- Recognized full timestamps are interpreted as TCT/UTC unless an ISO timestamp carries an explicit numeric offset.
+- Dates in Torn-style `DD/MM/YY` and `DD/MM/YYYY` formats use **day/month/year**, not month/day/year.
 
-## Updates
+## Compatibility
 
-The userscript header includes `@updateURL` and `@downloadURL` pointing at the **main** branch. Once the GitHub repository and script are live, Tampermonkey can check for published updates. Increase `@version` when releasing a new script revision.
+- **Desktop browser with Tampermonkey:** stable, with user testing on Torn pages and automated parser / UI checks.
+- **Torn PDA, iOS, Android, touchscreen:** not yet validated. Torn PDA supports custom scripts, but this version currently uses mouse hover and does not implement tap/long-press. A touch-friendly implementation is planned; please do not assume the desktop script works in PDA.
 
-## Contributing
+## Troubleshooting and reporting issues
 
-Bug reports and suggestions are welcome through [GitHub Issues](https://github.com/HairyKary/Torn-TCT-Local-Converter/issues). Please avoid including private account or faction information in screenshots.
+If a time doesn't convert or converts incorrectly, open a [GitHub issue](https://github.com/HairyKary/Torn-TCT-Local-Converter/issues) with the Torn page, the exact timestamp text, your device's time zone, and the expected conversion. Avoid including API keys, private account information, or private faction data.
 
-## License
+## Updates and contribution
 
-Released under the [MIT License](LICENSE). This is a fan-made, unofficial tool and is not affiliated with Torn.
+The script is maintained on `main`, with a version bump and [changelog](CHANGELOG.md) for each published release. Contributions and bug reports are welcome. See the [MIT License](LICENSE).
+
+This is an unofficial fan-made tool and is not affiliated with Torn.
