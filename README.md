@@ -1,57 +1,70 @@
 # Torn TCT + Local Hover Converter
 
-**v1.3.0 — First stable desktop release**
+**v1.4.0-beta.1 — Mobile / Torn PDA test build (not yet released to Greasy Fork)**
 
-A lightweight, unofficial [Tampermonkey](https://www.tampermonkey.net/) userscript for [Torn](https://www.torn.com/) that shows the **local equivalent of TCT (UTC) timestamps when you hover over them**. No permanent clocks, extra controls, API keys, or network requests.
+A lightweight, unofficial userscript for [Torn](https://www.torn.com/) that converts Torn City Time (TCT/UTC) timestamps to the device's local time. No permanent clocks, API key, external libraries, or network requests.
 
-## Features
+> **Important:** This development branch is for mobile testing. The [stable desktop version (v1.3.0)](https://github.com/HairyKary/Torn-TCT-Local-Converter/blob/main/README.md) remains on `main` and continues to be distributed through [Greasy Fork](https://greasyfork.org/en/scripts/599932-torn-tct-local-hover-converter). Do not merge this branch until Torn PDA / mobile testing succeeds.
 
-- Shows **TCT and local time in 24-hour format** only when hovering over a recognized timestamp.
-- Automatically uses the **device/browser's configured time zone**, including daylight saving time (EDT/EST where applicable).
-- Understands Torn-style date/time formats such as `20:00:00 - 12/10/26` and `12/10/26 20:00`, ISO timestamps, and time-only `20:00` / `20:00 TCT`.
-- Detects timestamps in visible text and common tooltip/date attributes, including `<time datetime="...">`.
-- Does not change Torn's existing page content or prevent normal mouse interactions.
-- No Torn API key, special userscript privileges, tracking, or external network calls.
+## How to use
 
-## Install on desktop
+| Device / situation | Action |
+| --- | --- |
+| Desktop browser | Hover over a recognized timestamp. |
+| Mobile: plain timestamp text | Tap the timestamp to show TCT and local time. |
+| Mobile: timestamp in a link or button | Press and hold for about **0.45 seconds**; a quick tap still follows the link. |
+| Mobile: close converter | Tap **×**, tap elsewhere, or scroll. |
 
-1. Install [Tampermonkey](https://www.tampermonkey.net/) (or another compatible userscript manager).
-2. Open [**Install the current script**](https://raw.githubusercontent.com/HairyKary/Torn-TCT-Local-Converter/main/torn-tct-local-converter.user.js).
-3. Approve the installation and refresh Torn.
-4. Hover over a time or date/time on Torn.
+Times are in **24-hour format**, based on the device/browser's time zone (including applicable daylight saving time). Full timestamps can convert to the preceding or following local calendar day.
 
-If you have an older manually installed copy, **disable or delete it first** to avoid duplicate tooltips. The published script has `@updateURL` and `@downloadURL` set to this repository's `main` branch. Versioned updates are picked up during your userscript manager's update checks.
+## Install the mobile beta in Torn PDA
 
-## Example
+1. In Torn PDA, open **Settings → Advanced Browser Settings**.
+2. Enable **Custom User Scripts** and choose **Manage Scripts**.
+3. Add a new script and paste the **remote URL** below; fetch/load the script and save it. Depending on your Torn PDA version, a direct `.user.js` URL may also prompt installation.
+4. Open a Torn page inside the PDA browser and try a tap on a timestamp.
 
-Hovering over `20:00:00 - 12/10/26` in US Eastern time on October 12, 2026:
+Beta script URL:
 
 ```text
-TCT:   12 Oct 2026, 20:00 UTC
-Local: 12 Oct 2026, 16:00 EDT
+https://raw.githubusercontent.com/HairyKary/Torn-TCT-Local-Converter/feature/pda-mobile-touch/torn-tct-local-converter.user.js
 ```
 
-A full timestamp can correctly produce a **different local calendar date**. For example, `01:00 TCT` on October 12 is `21:00 EDT` on October 11.
+Do **not** install both the stable and mobile beta scripts in the same Torn PDA script manager: disable the stable copy while testing to avoid duplicate tooltips. This beta uses branch-specific `@updateURL`/`@downloadURL` metadata, so it does not automatically publish to Greasy Fork.
 
-## Time zones and dates
+If Torn PDA refuses the remote URL, copy the beta script from the branch into PDA's script editor instead. That fallback may not provide remote update notifications.
 
-- TCT is UTC. The converter relies on the browser's **configured time zone**, not your IP address or Torn account settings.
-- If you travel or change the device's time zone, reload Torn to refresh the time-zone setting.
-- When hovering over a **time without a date**, the script assumes today's date **in UTC/TCT** and shows a warning. An event intended for tomorrow cannot be inferred from `20:00` alone.
-- Recognized full timestamps are interpreted as TCT/UTC unless an ISO timestamp carries an explicit numeric offset.
-- Dates in Torn-style `DD/MM/YY` and `DD/MM/YYYY` formats use **day/month/year**, not month/day/year.
+## Install the beta in a mobile browser
 
-## Compatibility
+Use a mobile userscript manager compatible with your mobile browser, then install the same branch URL. Browser extension and userscript support differs by platform; we have not verified every iOS/Android browser.
 
-- **Desktop browser with Tampermonkey:** stable, with user testing on Torn pages and automated parser / UI checks.
-- **Torn PDA, iOS, Android, touchscreen:** not yet validated. Torn PDA supports custom scripts, but this version currently uses mouse hover and does not implement tap/long-press. A touch-friendly implementation is planned; please do not assume the desktop script works in PDA.
+## Existing parsing support
 
-## Troubleshooting and reporting issues
+- `20:00:00 - 12/10/26` (Torn day/month/year)
+- `12/10/26 20:00`
+- `2026-10-12 20:00` and ISO timestamps with explicit UTC offsets
+- Bare `20:00`, `20:00 TCT`, and `TCT 20:00`
+- Timestamps in text, `title`, `aria-label`, and `datetime` attributes
 
-If a time doesn't convert or converts incorrectly, open a [GitHub issue](https://github.com/HairyKary/Torn-TCT-Local-Converter/issues) with the Torn page, the exact timestamp text, your device's time zone, and the expected conversion. Avoid including API keys, private account information, or private faction data.
+For a time **without a date**, the script assumes **today in UTC/TCT** and clearly notes that assumption. Ambiguous dates or times already shown in another time zone might convert incorrectly.
 
-## Updates and contribution
+## What to test on mobile
 
-The script is maintained on `main`, with a version bump and [changelog](CHANGELOG.md) for each published release. Contributions and bug reports are welcome. See the [MIT License](LICENSE).
+- Faction pages, forums, war screens, and organized crime pages.
+- Plain timestamps: quick tap shows the popup, × and tapping elsewhere close it.
+- Links containing timestamps: quick tap continues navigating; long-press shows the conversion.
+- Scroll gestures don't accidentally open the popup.
+- Late-night timestamps show the correct **local date** as well as the hour.
 
-This is an unofficial fan-made tool and is not affiliated with Torn.
+Please report missing timestamps or unexpected interactions to [GitHub issue #1](https://github.com/HairyKary/Torn-TCT-Local-Converter/issues/1). Include your platform (Android/iOS), Torn PDA version if available, the page type, and a safe example timestamp. **Never share Torn API keys.**
+
+## Development and testing
+
+The beta deliberately uses only standard web APIs (`touchstart`, `touchmove`, `touchend`, `contextmenu`, and DOM APIs) and does not depend on Tampermonkey-specific `GM_*` methods. A zero-dependency Node-based interaction test is included:
+
+```bash
+TZ=America/New_York node tests/test-mobile.js
+node --check torn-tct-local-converter.user.js
+```
+
+Local tests can verify event handling but do **not** substitute for testing in Torn PDA's actual webview. See [CHANGELOG.md](CHANGELOG.md). Released under the [MIT License](LICENSE). Not affiliated with Torn or Torn PDA.
