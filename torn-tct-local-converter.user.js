@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Torn TCT + Local Hover Converter
 // @namespace    https://github.com/HairyKary/Torn-TCT-Local-Converter
-// @version      1.4.1
+// @version      1.4.2
 // @author       HairyKary
 // @license      MIT
 // @description  Convert TCT timestamps to device-local time: hover on desktop, tap or long-press on mobile.
@@ -24,6 +24,10 @@
   // A clock display is not always a clock *time*: travel timers are durations.
   const FLIGHT_ARRIVAL = /\b(?:landing(?:\s+(?:at|time))?|arriv(?:al|ing)(?:\s+(?:at|time))?|arrives?\s+at|lands?\s+at)\s*[:–—-]?\s*$/i;
   const DURATION_LABEL = /\b(?:remaining\s+(?:(?:flight|travel)\s+)?time|(?:flight|travel)\s+time\s+remaining|time\s+(?:left|remaining)|countdown|cooldown|duration|elapsed(?:\s+time)?|flight\s+duration|travel\s+duration|(?:starts?|ends?|finishes?)\s+in)\s*[:–—-]?\s*$/i;
+  // A resource bar's HH:MM[:SS] is time remaining, not a time of day.
+  const RESOURCE_DURATION_LABEL = /\b(?:(?:full|max(?:imum)?)\s+(?:energy|nerve|happy(?:ness)?|life)\s+in|(?:energy|nerve|happy(?:ness)?|life)\s*:\s*\d+\s*\/\s*\d+(?:\s+(?:remaining|left|in))?|(?:energy|nerve|happy(?:ness)?|life)\s+(?:refills?|regenerates?|recovers?|restores?)\s+in)\s*[:–—-]?\s*$/i;
+  // For resource timers stored in title/aria-label attributes with no text time.
+  const RESOURCE_STATUS_ROW = /^(?:energy|nerve|happy(?:ness)?|life)\s*:?\s*\d+\s*\/\s*\d+(?:\s+(?:(?:[01]?\d|2[0-3]):[0-5]\d(?::[0-5]\d)?|full))?$/i;
   const HOLD_MS = 450;
   const MOVE_TOLERANCE = 12;
   const SYNTHETIC_MOUSE_DELAY_MS = 1500;
@@ -175,7 +179,7 @@
         lastClockEnd = match.index + match[0].length;
       }
       preceding = preceding.slice(lastClockEnd);
-      if (DURATION_LABEL.test(preceding)) return 'duration';
+      if (DURATION_LABEL.test(preceding) || RESOURCE_DURATION_LABEL.test(preceding)) return 'duration';
       if (FLIGHT_ARRIVAL.test(preceding)) return 'arrival';
       return null;
     }
@@ -183,6 +187,13 @@
     function contextKind(node, candidate, clock) {
       const direct = clockKind(candidate, clock);
       if (direct) return direct;
+      // Some HUD timers exist only in attributes; neighboring text shows the
+      // resource value, so the clock is never visible in element.textContent.
+      for (let current = node, depth = 0; current && current !== document.body && depth < 3;
+        current = current.parentElement, depth++) {
+        const row = (current.textContent || '').replace(/\s+/g, ' ').trim();
+        if (row.length <= 100 && RESOURCE_STATUS_ROW.test(row)) return 'duration';
+      }
       // Restrict the search to close-by containers; don't absorb unrelated rows.
       for (let parent = node.parentElement, depth = 0; parent && depth < 3;
         parent = parent.parentElement, depth++) {
