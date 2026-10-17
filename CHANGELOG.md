@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.4.3] - 2026-10-17 — Chain countdown detection patch
+
+- Ignore chain countdown timers instead of converting their remaining minutes and seconds as UTC.
+- Detect chain timer labels, counters next to chain totals, and dedicated `bar-timeleft` timer elements.
+- Preserve dated and explicit TCT timestamps, including scheduled chain events.
+- Add regression cases for desktop hover and Torn PDA/mobile chain timer interactions.
+
 ## [1.4.2] - 2026-10-17 — Resource timer detection patch
 
 - Skip energy, nerve, happiness, and life HUD countdowns even if formatted as HH:MM or HH:MM:SS.

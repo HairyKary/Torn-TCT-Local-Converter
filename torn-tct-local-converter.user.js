@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Torn TCT + Local Hover Converter
 // @namespace    https://github.com/HairyKary/Torn-TCT-Local-Converter
-// @version      1.4.2
+// @version      1.4.3
 // @author       HairyKary
 // @license      MIT
 // @description  Convert TCT timestamps to device-local time: hover on desktop, tap or long-press on mobile.
@@ -28,6 +28,11 @@
   const RESOURCE_DURATION_LABEL = /\b(?:(?:full|max(?:imum)?)\s+(?:energy|nerve|happy(?:ness)?|life)\s+in|(?:energy|nerve|happy(?:ness)?|life)\s*:\s*\d+\s*\/\s*\d+(?:\s+(?:remaining|left|in))?|(?:energy|nerve|happy(?:ness)?|life)\s+(?:refills?|regenerates?|recovers?|restores?)\s+in)\s*[:–—-]?\s*$/i;
   // For resource timers stored in title/aria-label attributes with no text time.
   const RESOURCE_STATUS_ROW = /^(?:energy|nerve|happy(?:ness)?|life)\s*:?\s*\d+\s*\/\s*\d+(?:\s+(?:(?:[01]?\d|2[0-3]):[0-5]\d(?::[0-5]\d)?|full))?$/i;
+  // A Torn chain bar is a countdown, not a UTC/TCT clock.
+  const CHAIN_DURATION_LABEL = /\b(?:chain(?:\s+(?:timer|time(?:\s+(?:left|remaining))?|countdown))?|(?:time|timer)\s+(?:left|remaining)\s+(?:on|in)\s+(?:the\s+)?chain|chain\s+(?:expires?|ends?)\s+in)\s*[:–—-]?\s*$/i;
+  // Recognize compact chain count/timer rows, including attribute-only counters.
+  const CHAIN_STATUS_ROW = new RegExp('^\\s*chain\\b(?:\\s+(?:hits?|count|time(?:\\s+(?:left|remaining))?|timer|countdown))?\\s*[:–—-]?\\s*(?:\\d+(?:\\s*/\\s*\\d+)?(?:\\s*hits?)?\\s*[:|–—-]?\\s*)?(?:' + TIME + ')?\\s*$', 'i');
+  const CHAIN_TIMER_CLASS = /(?:bar[-_]?timeleft|chain[-_]*(?:timer|timeleft|countdown|clock)|(?:timer|countdown)[-_]*chain)/i;
   const HOLD_MS = 450;
   const MOVE_TOLERANCE = 12;
   const SYNTHETIC_MOUSE_DELAY_MS = 1500;
@@ -179,7 +184,7 @@
         lastClockEnd = match.index + match[0].length;
       }
       preceding = preceding.slice(lastClockEnd);
-      if (DURATION_LABEL.test(preceding) || RESOURCE_DURATION_LABEL.test(preceding)) return 'duration';
+      if (DURATION_LABEL.test(preceding) || RESOURCE_DURATION_LABEL.test(preceding) || CHAIN_DURATION_LABEL.test(preceding)) return 'duration';
       if (FLIGHT_ARRIVAL.test(preceding)) return 'arrival';
       return null;
     }
@@ -187,11 +192,15 @@
     function contextKind(node, candidate, clock) {
       const direct = clockKind(candidate, clock);
       if (direct) return direct;
-      // Some HUD timers exist only in attributes; neighboring text shows the
-      // resource value, so the clock is never visible in element.textContent.
-      for (let current = node, depth = 0; current && current !== document.body && depth < 3;
+      // Countdown clocks may exist only in attributes, or without a nearby
+      // text label. Inspect a few nearby chain/resource HUD elements only.
+      for (let current = node, depth = 0; current && current !== document.body && depth < 4;
         current = current.parentElement, depth++) {
+        const marker = ['class', 'id', 'data-testid', 'data-test'].map(key =>
+          current.getAttribute(key) || '').join(' ');
+        if (CHAIN_TIMER_CLASS.test(marker)) return 'duration';
         const row = (current.textContent || '').replace(/\s+/g, ' ').trim();
+        if (row.length <= 140 && CHAIN_STATUS_ROW.test(row)) return 'duration';
         if (row.length <= 100 && RESOURCE_STATUS_ROW.test(row)) return 'duration';
       }
       // Restrict the search to close-by containers; don't absorb unrelated rows.
