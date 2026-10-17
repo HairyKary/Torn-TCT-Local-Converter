@@ -1,6 +1,6 @@
 # Torn TCT + Local Hover Converter
 
-**v1.4.2 — Stable desktop and mobile/Torn PDA release**
+**v1.4.3 — Stable desktop and mobile/Torn PDA release**
 
 A lightweight, unofficial userscript for [Torn](https://www.torn.com/) that displays Torn City Time (TCT / UTC) alongside your device's local time only when you interact with a timestamp. No permanent clock, API key, external libraries, or network requests.
 
@@ -11,6 +11,7 @@ A lightweight, unofficial userscript for [Torn](https://www.torn.com/) that disp
 - The compact popup shows **TCT and device-local time in 24-hour format**, with automatic daylight saving time adjustments, and never changes the original page content.
 - Close a mobile popup using **×**, by tapping elsewhere, or by scrolling. Movement cancels an unfinished long press.
 - Supports time-only values, Torn-style dates, ISO timestamps, and common tooltip attributes, including `datetime`, `title`, and `aria-label`.
+- **Faction chains:** ignores chain countdown timers, including Torn's `bar-timeleft` element, while retaining real scheduled TCT times.
 - **Resource HUD:** does not convert energy, nerve, happiness, or life regeneration countdowns as clock times.
 - **Torn flight screens:** ignores countdown durations (such as `Remaining Flight Time - 03:14:38`) but converts actual landing clock times (such as `Landing at 23:45:50`) to your device time.
 
