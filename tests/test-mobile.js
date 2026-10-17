@@ -21,8 +21,8 @@ class FakeElement {
   appendChild(kid){this.append(kid);return kid;}
   setAttribute(k,v){this.attrs[k]=v; if(k==='id')this.id=v;}
   getAttribute(k){return this.attrs[k]??null;}
-  get textContent(){return this._text + this.childNodes.map(x=>x.textContent).join('');}
-  set textContent(t){this._text=t;this.children=[];this.childNodes=[new FakeText(t)];}
+  get textContent(){return this.childNodes.map(x=>x.textContent).join('');}
+  set textContent(t){this._text='';this.children=[];this.childNodes=[new FakeText(t)];}
   addEventListener(k,fn){(this.eventListeners[k]||=[]).push(fn);}
   contains(el){for(let e=el;e;e=e.parentElement)if(e===this)return true;return false;}
   closest(selector){for(let e=this;e;e=e.parentElement){for(const q of selector.split(/,\s*/)){if(q==='input'||q==='textarea'||q==='select'||q==='button'||q==='summary'||q==='label'){if(e.tagName.toLowerCase()===q)return e;}else if(q==='a[href]' && e.tagName==='A' && e.attrs.href)return e;else if(q==='[onclick]' && e.attrs.onclick)return e;else if(q==='[role="button"]'&&e.attrs.role==='button')return e;else if(q==='[role="link"]'&&e.attrs.role==='link')return e;else if(q==='[contenteditable]'&&e.attrs.contenteditable)return e;else if(q.startsWith('#')&&e.id===q.slice(1))return e;}} return null;}
@@ -106,4 +106,49 @@ fire('mouseover', { target: midnightLanding });
 assert.match(tct.textContent, /13 Oct 2026, 00:05/, 'landing rolls to next TCT date');
 assert.match(local.textContent, /12 Oct 2026, 20:05 EDT/, 'local date converts correctly');
 
-console.log('PASS: desktop, mobile, and flight countdown/landing regression checks.');
+
+function makeResourceRow(name, value, countdown) {
+  const row = el('div', name + ': ' + value + ' ');
+  const timer = new FakeElement('span');
+  timer.textContent = countdown;
+  row.append(timer);
+  return timer;
+}
+for (const [name, value, countdown] of [
+  ['Energy', '0/150', '03:13'],
+  ['Nerve', '45/65', '03:13'],
+  ['Happy', '4810/5025', '13:13'],
+  ['Life', '500/500', '03:13']
+]) {
+  const timer = makeResourceRow(name, value, countdown);
+  fire('mouseover', {target:timer});
+  assert.equal(tooltip.style.display, 'none', name + ' resource bar must not convert');
+  touchStart(timer);touchEnd(timer);
+  assert.equal(tooltip.style.display, 'none', name + ' resource bar touch must not convert');
+}
+advance(2000); // let synthesized mouse-event suppression expire
+const regenTooltip = el('div', 'Energy increased by 5 every 10 minutes. Full energy in ');
+const regenTimer = new FakeElement('span');
+regenTimer.textContent = '04:53:13';
+regenTooltip.append(regenTimer);
+fire('mouseover', {target:regenTimer});
+assert.equal(tooltip.style.display, 'none', 'Full energy in countdown must be ignored');
+const nerveTooltip = el('div', 'Full nerve in ');
+const nerveTimer = new FakeElement('span');
+nerveTimer.textContent = '00:15:00';
+nerveTooltip.append(nerveTimer);
+fire('mouseover', {target:nerveTimer});
+assert.equal(tooltip.style.display, 'none', 'Full nerve in countdown must be ignored');
+const attributeResource = el('div', 'Energy: 0/150');
+const titleTimer = new FakeElement('span');
+titleTimer.setAttribute('title', '03:13');
+attributeResource.append(titleTimer);
+fire('mouseover', {target:titleTimer});
+assert.equal(tooltip.style.display, 'none', 'attribute-only timer in a resource row must be ignored');
+const explicitClock = el('span','23:00 TCT');
+fire('mouseover',{target:explicitClock});
+assert.equal(tooltip.style.display,'block','explicit TCT times still convert');
+const datedClock = el('span','2026-10-12 20:00');
+fire('mouseover',{target:datedClock});
+assert.equal(tooltip.style.display,'block','dated timestamps still convert');
+console.log('PASS: desktop, mobile, flight and resource timer regression tests.');
