@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.4.2] - 2026-10-17 — Resource timer detection patch
+
+- Skip energy, nerve, happiness, and life HUD countdowns even if formatted as HH:MM or HH:MM:SS.
+- Skip tooltip regeneration durations (for example, `Full energy in 04:53:13`) and attribute-only timers inside resource rows.
+- Preserve normal dated and TCT-labeled timestamps, travel landing time detection, and desktop/mobile behavior.
+- Add regression fixtures for resource bars and timers; correct a duplicated-text issue in the test DOM.
+
 ## [1.4.1] - 2026-10-12 — Flight screen countdown detection patch
 
 - Ignore travel/flight countdown durations such as `Remaining Flight Time - 03:14:38` instead of interpreting them as TCT clock times.
